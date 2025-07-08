@@ -19,19 +19,19 @@ from app.models.llm_client import get_llm
 
 def filter_thinking_tags(content: str) -> str:
     """
-    Lọc bỏ nội dung nằm trong thẻ <think>...</think> hoặc các định dạng tương tự.
+    Filter out content within <think>...</think> tags or similar formats.
     
     Args:
-        content: Chuỗi cần lọc
+        content: String to filter
         
     Returns:
-        Chuỗi đã được lọc bỏ phần thinking
+        String with thinking content removed
     """
-    # Lọc bỏ nội dung trong thẻ <think>...</think>
+    # Filter content within <think>...</think> tags
     pattern = r'<think>.*?</think>'
     content = re.sub(pattern, '', content, flags=re.DOTALL)
     
-    # Cũng lọc bỏ các thẻ tương tự khác như [thinking], [thought], v.v.
+    # Also filter similar tags like [thinking], [thought], etc.
     patterns = [
         r'\[thinking\].*?\[/thinking\]',
         r'\[thought\].*?\[/thought\]',
@@ -41,7 +41,7 @@ def filter_thinking_tags(content: str) -> str:
     for pattern in patterns:
         content = re.sub(pattern, '', content, flags=re.DOTALL)
     
-    # Loại bỏ các dòng trống dư thừa
+    # Remove excess empty lines
     content = re.sub(r'\n{3,}', '\n\n', content)
     content = content.strip()
     
@@ -100,7 +100,7 @@ class ResearcherAgent:
     def __init__(self, realtime: bool = False):
         """Initialize the researcher agent."""
         self.realtime = realtime
-        self.session = None  # Sẽ được set từ bên ngoài
+        self.session = None  # Will be set from outside
     
     def run(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -118,45 +118,45 @@ class ResearcherAgent:
         test_results = state.get("test_results", "")
         attempt = state.get("research_attempt", 0)
         
-        # Tăng số lần thử
+        # Increment attempt count
         attempt += 1
         state["research_attempt"] = attempt
         
         if attempt > 3:
             print(f"Warning: Research attempt {attempt} for topic {topic}. Adjusting strategy.")
-            # Nếu đã thử nhiều lần, sử dụng chiến lược tìm kiếm khác
+            # If multiple attempts have been made, use a different search strategy
             query = f"scientific medical information {topic} treatment diagnosis evidence based medicine"
-            use_trusted_domains = True  # Luôn sử dụng domain tin cậy sau nhiều lần thử
+            use_trusted_domains = True  # Always use trusted domains after multiple attempts
         else:
-            # Tạo truy vấn tìm kiếm
+            # Create search query
             if symptoms and len(symptoms.strip()) > 0 and symptoms.lower() != "no symptoms provided.":
                 query = f"{topic} {symptoms} causes diagnosis treatment medical information"
             else:
                 query = f"{topic} medical information diagnosis treatment"
             
-            # Bổ sung thông tin từ lịch sử y tế và kết quả xét nghiệm
+            # Add information from medical history and test results
             if medical_history and medical_history.lower() != "no medical history provided.":
-                relevant_history = medical_history[:100]  # Lấy 100 ký tự đầu tiên
+                relevant_history = medical_history[:100]  # Take first 100 characters
                 query += f" with {relevant_history}"
                 
             if test_results and test_results.lower() != "no test results provided.":
-                relevant_tests = test_results[:100]  # Lấy 100 ký tự đầu tiên
+                relevant_tests = test_results[:100]  # Take first 100 characters
                 query += f" test results {relevant_tests}"
             
-            use_trusted_domains = True  # Mặc định sử dụng các domain y tế tin cậy
+            use_trusted_domains = True  # Default to using trusted medical domains
         
         print(f"Research query: {query}")
         print(f"Use trusted domains: {use_trusted_domains}")
         
         if not self.realtime:
-            # Giả lập kết quả nghiên cứu nếu không cần realtime
+            # Simulate research results if not using realtime
             print("Using simulated research results")
             findings = self._simulate_research(topic, symptoms)
             
             return {**state, "research_findings": findings, "next": "verify_sources"}
         
         try:
-            # Thực hiện tìm kiếm web thực sự
+            # Perform actual web search
             search_results = web_search(query, num_results=5, use_trusted_domains=use_trusted_domains)
             
             if not search_results:
@@ -164,7 +164,7 @@ class ResearcherAgent:
                 findings = self._simulate_research(topic, symptoms)
                 return {**state, "research_findings": findings, "next": "verify_sources"}
             
-            # Tổng hợp kết quả
+            # Summarize results
             summary = f"Research findings for {topic}:\n\n"
             
             for i, result in enumerate(search_results):
@@ -180,7 +180,7 @@ class ResearcherAgent:
             
         except Exception as e:
             print(f"Error during research: {str(e)}")
-            # Sử dụng kết quả giả lập trong trường hợp lỗi
+            # Use simulated results in case of error
             findings = self._simulate_research(topic, symptoms)
             return {**state, "research_findings": findings, "next": "verify_sources"}
     
@@ -263,8 +263,8 @@ class Diagnostician:
             {findings}
             
             Based on the above information, what are the most likely diagnoses? Format as instructed.""")
-        ])
-        
+            ])
+            
         try:
             chain = prompt | llm
             result = chain.invoke({
@@ -364,7 +364,7 @@ class TreatmentAdvisor:
             chain = prompt | llm
             result = chain.invoke({
                 "diagnoses": diagnoses_str,
-                "symptoms": symptoms,
+            "symptoms": symptoms,
                 "medical_history": medical_history,
                 "findings": findings
             })
@@ -542,7 +542,7 @@ class SourceVerifier:
             if 'Source:' in line or 'source:' in line:
                 source = line.split(':', 1)[1].strip()
                 sources.add(source)
-                
+        
             # Also look for URLs
             if 'http://' in line or 'https://' in line:
                 words = line.split()

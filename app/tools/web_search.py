@@ -14,7 +14,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 from googleapiclient.discovery import build
 
-# Danh sách các domain tin cậy về y tế
+# List of trusted medical domains
 TRUSTED_DOMAINS = [
     'mayoclinic.org', 'nih.gov', 'who.int', 'cdc.gov', 'webmd.com',
     'medlineplus.gov', 'healthline.com', 'medicalnewstoday.com',
@@ -23,7 +23,7 @@ TRUSTED_DOMAINS = [
     'jamanetwork.com', 'bmj.com', 'aafp.org', 'medscape.com'
 ]
 
-# Tạo session mặc định với timeout và retry
+# Create default session with timeout and retry
 def create_default_session(timeout: int = 10):
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
@@ -74,7 +74,7 @@ def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = Tru
     }
     
     try:
-        # Sử dụng session với timeout
+        # Use session with timeout
         session = default_session
         response = session.post(url, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
@@ -89,7 +89,7 @@ def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = Tru
                 snippet = item.get("snippet", "")
                 link = item.get("link", "")
                 
-                # Lọc kết quả theo domain tin cậy nếu được yêu cầu
+                # Filter results by trusted domains if requested
                 if use_trusted_domains:
                     if any(domain in link.lower() for domain in TRUSTED_DOMAINS):
                         search_results.append({
@@ -107,7 +107,7 @@ def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = Tru
                 if len(search_results) >= num_results:
                     break
             
-            # Nếu không đủ kết quả từ các domain tin cậy, thêm các kết quả khác
+            # If not enough results from trusted domains, add other results
             if len(search_results) < num_results and use_trusted_domains:
                 for item in organic:
                     title = item.get("title", "")
@@ -161,11 +161,11 @@ class GoogleSearchTool(BaseTool):
         """Cached search function to avoid redundant API calls."""
         service = build("customsearch", "v1", developerKey=self._api_key)
         
-        # Ưu tiên trang web uy tín bằng cách thêm site restriction
+        # Prioritize trusted websites by adding site restrictions
         trusted_sites_query = query
-        # Thêm domain restriction nếu không có sẵn trong query
+        # Add domain restrictions if not already present in the query
         if not any(f"site:{domain}" in query for domain in TRUSTED_DOMAINS):
-            # Chọn một số domain uy tín để thêm vào query
+            # Select a few trusted domains to add to the query
             top_domains = TRUSTED_DOMAINS[:3]
             site_restriction = " OR ".join([f"site:{domain}" for domain in top_domains])
             trusted_sites_query = f"{query} ({site_restriction})"
@@ -176,7 +176,7 @@ class GoogleSearchTool(BaseTool):
         formatted_results = []
         if "items" in result:
             for item in result["items"]:
-                # Chỉ thêm kết quả từ các trang uy tín
+                # Only add results from trusted websites
                 url = item.get("link", "")
                 if any(domain in url for domain in TRUSTED_DOMAINS):
                     formatted_results.append({
@@ -198,7 +198,7 @@ class GoogleSearchTool(BaseTool):
         Returns:
             String representation of search results
         """
-        # Tránh vòng lặp vô hạn bằng cách giới hạn số lần tìm kiếm
+        # Avoid infinite loops by limiting search attempts
         if query in self._search_attempt_count:
             self._search_attempt_count[query] += 1
         else:
@@ -310,7 +310,7 @@ class WebScraper(BaseTool):
         Returns:
             String representation of scraped content
         """
-        # Tránh vòng lặp vô hạn bằng cách giới hạn số lần scraping
+        # Avoid infinite loops by limiting scrape attempts
         if url in self._scrape_attempt_count:
             self._scrape_attempt_count[url] += 1
         else:
@@ -331,10 +331,10 @@ class WebScraper(BaseTool):
             print(f"Using cached data for URL: {url}")
             return self._cache[url]
             
-        # Kiểm tra xem URL có thuộc domain tin cậy không
+        # Check if URL belongs to a trusted domain
         is_trusted = any(domain in url for domain in TRUSTED_DOMAINS)
         
-        # Nếu không phải domain tin cậy, trả về thông báo
+        # If not a trusted domain, return a message
         if not is_trusted:
             untrusted_result = {
                 "title": "Untrusted Source",
@@ -415,7 +415,7 @@ class WebScraper(BaseTool):
                     sample_data = self._get_sample_content(url)
                     self._cache[url] = json.dumps(sample_data)
                     return self._cache[url]
-                time.sleep(1)  # Chờ 1 giây trước khi thử lại
+                time.sleep(1)  # Wait 1 second before retrying
     
     def _get_sample_content(self, url: str) -> Dict[str, str]:
         """Get sample content based on URL."""
@@ -494,7 +494,7 @@ class SerpApiSearchTool(BaseTool):
         if "organic_results" in result:
             for item in result["organic_results"][:num_results]:
                 url = item.get("link", "")
-                # Ưu tiên kết quả từ các nguồn uy tín
+                # Prioritize results from trusted sources
                 if any(domain in url for domain in TRUSTED_DOMAINS):
                     formatted_results.append({
                         "title": item.get("title", ""),
@@ -515,7 +515,7 @@ class SerpApiSearchTool(BaseTool):
         Returns:
             String representation of search results
         """
-        # Tránh vòng lặp vô hạn bằng cách giới hạn số lần tìm kiếm
+        # Avoid infinite loops by limiting search attempts
         if query in self._search_attempt_count:
             self._search_attempt_count[query] += 1
         else:
@@ -566,7 +566,7 @@ class SerpApiSearchTool(BaseTool):
                     print(f"Error on SerpApi search attempt {retry_count}: {str(e)}")
                     if retry_count >= max_retries:
                         raise e
-                    time.sleep(1)  # Chờ 1 giây trước khi thử lại
+                    time.sleep(1)  # Wait 1 second before retrying
             
         except Exception as e:
             print(f"Error performing SerpApi search: {str(e)}")

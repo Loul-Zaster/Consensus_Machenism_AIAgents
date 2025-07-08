@@ -10,13 +10,16 @@ The system leverages the LangGraph framework for agent orchestration and the IO.
 
 ## Features
 
-- Multiple specialized agents (researcher, diagnosticians, treatment advisors)
+- Multiple specialized agents (researcher, diagnostician, treatment advisor, consensus builder)
 - Consensus mechanism to synthesize opinions from multiple agents
-- Integration with IO.net Intelligence API
+- Integration with IO.net Intelligence API or OpenAI API
 - Support for medical research, diagnosis, and treatment recommendations
 - **Real-time web search** for up-to-date medical information
 - **Source verification** to evaluate the credibility of medical information sources
-- Integration with Google Search API and SerpAPI for comprehensive research
+- **Interactive Streamlit interface** for easy use and visualization
+- **Markdown formatting** for clear, structured diagnosis and treatment plans
+- **Automatic reasoning process** that shows medical thinking before conclusions
+- **Trusted domains filtering** to ensure reliable medical information
 
 ## Architecture
 
@@ -74,22 +77,54 @@ The system consists of the following components:
 
 ## Usage
 
-### Running the System
+### Running with Streamlit
 
-To run the system, use the `main.py` script:
+The easiest way to use the system is through the Streamlit interface:
 
 ```
-python main.py "Type 2 Diabetes" --symptoms "Frequent urination, excessive thirst" --medical-history "Family history of diabetes"
+streamlit run app/streamlit_app.py
 ```
 
-### Command Line Arguments
+This will open a web interface where you can:
+1. Enter medical topics for research
+2. Provide symptoms, medical history, and test results
+3. Enable real-time web search
+4. View detailed diagnosis, treatment plans, and research findings
 
-- `topic`: The medical topic to research (required)
-- `--symptoms`, `-s`: Patient symptoms (optional)
-- `--medical-history`, `-m`: Patient medical history (optional)
-- `--test-results`, `-t`: Patient test results (optional)
-- `--output`, `-o`: Output file name (default: medical_diagnosis_results.md) (optional)
-- `--realtime`, `-r`: Enable real-time web search for the most current information (optional)
+### Running from Command Line
+
+To run the system from command line:
+
+```
+python -m app.langraph.main
+```
+
+### Environment Variables
+
+Create a `.env` file based on the `env.example` file with the following variables:
+
+```
+# LLM API Configuration (use either OPENAI or IOINTELLIGENCE)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-3.5-turbo
+
+# OR 
+
+# IO.net Intelligence API Configuration
+IOINTELLIGENCE_API_KEY=your_io_intelligence_api_key_here
+IOINTELLIGENCE_BASE_URL=https://api.intelligence.io.solutions/api/v1/
+IOINTELLIGENCE_DEFAULT_MODEL=deepseek-ai/DeepSeek-R1-0528
+
+# Web Search API Key
+SERPER_API_KEY=your_serper_api_key_here
+
+# Timeout & Retry Configuration
+DEFAULT_REQUEST_TIMEOUT=30
+MAX_RETRIES=3
+RESEARCH_TIMEOUT=120
+DIAGNOSIS_TIMEOUT=90
+CONSENSUS_TIMEOUT=90
+```
 
 ### Output
 
@@ -107,28 +142,19 @@ The report is saved as a Markdown file in the current directory.
 
 ### LangGraph Implementation
 
-This project uses LangGraph 0.5.1+ which introduces several changes to the API:
+This project uses LangGraph which implements a state machine for agent orchestration:
 
-- Nodes return partial state updates instead of modifying the entire state
-- State management is handled differently from previous versions
-- Streaming API has been updated
+- Each agent updates part of the global state
+- Conditional edges determine the next agent to run based on the state
+- The workflow manages timeouts and prevents infinite loops
 
-### Web Search Integration
+### Web Search Reliability
 
-The system integrates with multiple web search APIs:
-
-- **Google Custom Search API**: Provides access to Google search results
-- **SerpAPI**: Alternative search engine API that provides comprehensive results
-- **Web Scraper**: Extracts content from medical websites and journals
-
-### Source Verification
-
-The system includes a source verification component that:
-
-- Identifies sources mentioned in research findings
-- Evaluates the credibility of each source based on type, reputation, and content
-- Calculates an overall credibility score for the research
-- Influences the consensus process based on source reliability
+The system includes several reliability features:
+- List of trusted medical domains for filtering search results
+- Session-based requests with retry mechanisms
+- Automatic fallback to simulated results if web search fails
+- Cache mechanism to avoid redundant API calls
 
 ### Requirements
 
@@ -144,26 +170,24 @@ The system includes a source verification component that:
 ### Project Structure
 
 ```
-consensus-mechanism-ai-agents/
+Consensus_Machenism_AIAgents/
 ├── app/
 │   ├── __init__.py
-│   ├── config/
-│   │   ├── agents.yaml
-│   │   └── tasks.yaml
+│   ├── agents/
+│   │   └── __init__.py
 │   ├── langraph/
 │   │   ├── __init__.py
-│   │   ├── agents.py
-│   │   ├── graph.py
-│   │   └── main.py
-│   ├── main.py
+│   │   ├── agents.py    # Agent implementations
+│   │   ├── graph.py     # Workflow graph definition
+│   │   └── main.py      # Entry point for CLI
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── llm_client.py
+│   │   └── llm_client.py # LLM client implementations
+│   ├── streamlit_app.py  # Streamlit interface
 │   └── tools/
 │       ├── __init__.py
-│       └── web_search.py
-├── env.example
-├── main.py
+│       └── web_search.py # Web search implementations
+├── env.example           # Environment variables template
 ├── README.md
 ├── requirements.txt
 └── setup.py

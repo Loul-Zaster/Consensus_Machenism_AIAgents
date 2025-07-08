@@ -1,0 +1,48 @@
+research_task:
+  description: >
+    Research the following medical topic thoroughly: {topic}.
+    
+    {specific_questions}
+    
+    Your research should:
+    1. Use multiple reliable sources (medical journals, health organizations, academic institutions)
+    2. Provide citations for all information
+    3. Note when sources disagree and explain the different perspectives
+    4. Identify any recent developments or ongoing research
+    5. Organize the findings in a clear, structured format
+  expected_output: >
+    Comprehensive research findings with citations, organized by subtopics
+  agent: researcher
+
+diagnostic_task:
+  description: >
+    Based on the research findings and the following patient information:
+    
+    Patient symptoms: {symptoms}
+    Medical history: {medical_history}
+    Test results: {test_results}
+    
+    Analyze the information and provide a differential diagnosis. Consider:
+    1. Most likely diagnoses based on the presented information
+    2. Additional tests or information needed to confirm diagnoses
+    3. Potential comorbidities or complications
+    4. Level of confidence in each potential diagnosis
+  expected_output: >
+    A detailed differential diagnosis with reasoning and recommendations for further testing
+  agent: diagnostician
+  depends_on: ["research_task"]
+
+treatment_task:
+  description: >
+    Based on the research findings and the diagnostic assessment, recommend appropriate treatment options.
+    
+    Consider:
+    1. First-line treatments according to current clinical guidelines
+    2. Alternative treatments for patients who cannot tolerate first-line options
+    3. Lifestyle modifications and supportive care recommendations
+    4. Treatment efficacy, risks, and potential side effects
+    5. Follow-up care and monitoring recommendations
+  expected_output: >
+    A comprehensive treatment plan with options, rationales, and considerations for implementation
+  agent: treatment_advisor
+  depends_on: ["diagnostic_task"] 

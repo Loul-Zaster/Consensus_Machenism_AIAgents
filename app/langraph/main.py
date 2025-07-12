@@ -1,5 +1,5 @@
 """
-Main entry point for the LangGraph implementation of the Consensus Mechanism AI Agents system.
+Main entry point for the LangGraph implementation of the Cancer Consensus AI Agents system.
 """
 
 import os
@@ -13,13 +13,14 @@ from langgraph.graph import StateGraph
 from langchain_core.runnables import Runnable, RunnableConfig
 from app.langraph.graph import run_medical_diagnosis
 from app.langraph.agents import ResearcherAgent, SourceVerifier, Diagnostician, TreatmentAdvisor, ConsensusBuilder
+from app.agents.translation_agent import translate_medical_consensus, SUPPORTED_LANGUAGES
 
 # Load environment variables
 load_dotenv()
 
 def format_source_credibility(verified_sources: List[Dict[str, Any]], source_credibility: float) -> str:
     """
-    Format the source credibility information for the report.
+    Format the oncology source credibility information for the report.
     
     Args:
         verified_sources: List of verified sources with credibility scores
@@ -29,12 +30,12 @@ def format_source_credibility(verified_sources: List[Dict[str, Any]], source_cre
         Formatted string with source credibility information
     """
     if not verified_sources:
-        return "No source verification information available."
+        return "No oncology source verification information available."
     
-    result = "### Source Credibility Assessment\n\n"
+    result = "### Oncology Source Credibility Assessment\n\n"
     result += f"**Overall Credibility Score**: {source_credibility * 10:.1f}/10\n\n"
     
-    result += "#### Verified Sources\n\n"
+    result += "#### Verified Cancer Information Sources\n\n"
     for i, source in enumerate(verified_sources, 1):
         result += f"**Source {i}: {source.get('name', 'Unknown')}**\n"
         result += f"- Type: {source.get('type', 'Unknown')}\n"
@@ -48,38 +49,45 @@ def get_medical_diagnosis(
     symptoms: str = "No symptoms provided.",
     medical_history: str = "No medical history provided.",
     test_results: str = "No test results provided.",
-    realtime: bool = False
+    realtime: bool = False,
+    min_sources: int = 10
 ) -> Dict[str, Any]:
     """
-    Get medical diagnosis for a given topic and symptoms.
+    Get cancer diagnosis for a given topic and symptoms.
     
     Args:
-        topic: Medical topic to research
-        symptoms: Patient symptoms
-        medical_history: Patient medical history
-        test_results: Patient test results
+        topic: Cancer type or concern to research
+        symptoms: Patient cancer-related symptoms
+        medical_history: Patient medical history relevant to cancer
+        test_results: Cancer-related test results
         realtime: Whether to use real-time web search
+        min_sources: Minimum number of sources to include in research
         
     Returns:
-        Dictionary with diagnosis results
+        Dictionary with cancer diagnosis results
     """
     try:
-        # Run the medical diagnosis workflow
+        # Run the cancer diagnosis workflow
         result = run_medical_diagnosis(
             topic=topic,
             symptoms=symptoms,
             medical_history=medical_history,
             test_results=test_results,
-            realtime=realtime
-        )
-        
+            realtime=realtime,
+            min_sources=min_sources
+    )
+    
         # Extract results
-        consensus = result.get("consensus", "No consensus reached.")
+        consensus = result.get("consensus", "No cancer consensus reached.")
         diagnoses = result.get("diagnoses", [])
         treatments = result.get("treatments", [])
-        research_findings = result.get("research_findings", "No research findings.")
+        research_findings = result.get("research_findings", "No cancer research findings.")
         verified_sources = result.get("verified_sources", [])
         source_credibility = result.get("source_credibility", 0.0)
+        
+        # Ensure we have enough sources
+        if verified_sources and len(verified_sources) < min_sources:
+            print(f"Warning: Only found {len(verified_sources)} sources, which is less than the minimum {min_sources}")
         
         return {
             "topic": topic,
@@ -91,39 +99,96 @@ def get_medical_diagnosis(
             "source_credibility": source_credibility
         }
     except Exception as e:
-        print(f"Error during medical diagnosis: {str(e)}")
+        print(f"Error during cancer diagnosis: {str(e)}")
         return {
             "topic": topic,
             "error": str(e),
-            "consensus": "Could not generate a consensus due to an error.",
+            "consensus": "Could not generate a cancer consensus due to an error.",
             "diagnoses": [],
             "treatments": [],
-            "research_findings": "Error during research.",
+            "research_findings": "Error during cancer research.",
             "verified_sources": [],
             "source_credibility": 0.0
         }
 
+def get_medical_diagnosis_with_translation(
+    topic: str,
+    symptoms: str = "No symptoms provided.",
+    medical_history: str = "No medical history provided.",
+    test_results: str = "No test results provided.",
+    realtime: bool = False,
+    min_sources: int = 10,
+    target_language: str = None
+) -> Dict[str, Any]:
+    """
+    Get cancer diagnosis with optional translation.
+    
+    Args:
+        topic: Cancer type or concern to research
+        symptoms: Patient cancer-related symptoms
+        medical_history: Patient medical history relevant to cancer
+        test_results: Cancer-related test results
+        realtime: Whether to use real-time web search
+        min_sources: Minimum number of sources to include in research
+        target_language: Target language for translation (optional)
+        
+    Returns:
+        Dictionary with cancer diagnosis results (translated if target_language specified)
+    """
+    # Get the original diagnosis
+    result = get_medical_diagnosis(
+        topic=topic,
+        symptoms=symptoms,
+        medical_history=medical_history,
+        test_results=test_results,
+        realtime=realtime,
+        min_sources=min_sources
+    )
+    
+    # Translate if target language is specified
+    if target_language and target_language in SUPPORTED_LANGUAGES:
+        try:
+            print(f"Attempting to translate to {target_language}...")
+            translated_result = translate_medical_consensus(result, target_language)
+            print(f"Translation completed successfully")
+            return translated_result
+        except Exception as e:
+            print(f"Translation failed: {e}")
+            result["translation_error"] = str(e)
+            return result
+    elif target_language:
+        print(f"Target language '{target_language}' not supported. Available: {list(SUPPORTED_LANGUAGES.keys())}")
+        result["translation_error"] = f"Language '{target_language}' not supported"
+        return result
+    
+    return result
+
 if __name__ == "__main__":
     # Example usage
     result = get_medical_diagnosis(
-        topic="diabetes type 2",
-        symptoms="Frequent urination, increased thirst, unexplained weight loss, fatigue",
-        medical_history="Family history of diabetes, overweight, hypertension",
-        test_results="Fasting blood glucose: 180 mg/dL, HbA1c: 7.5%",
-        realtime=True
+        topic="breast cancer",
+        symptoms="Lump in breast, skin changes, nipple discharge",
+        medical_history="Family history of breast cancer, no prior cancer diagnosis",
+        test_results="Mammogram shows suspicious mass, awaiting biopsy",
+        realtime=True,
+        min_sources=10
     )
     
-    print("\nMEDICAL DIAGNOSIS RESULTS:")
+    print("\nCANCER DIAGNOSIS RESULTS:")
     print(f"Topic: {result['topic']}")
     print("\nConsensus:")
     print(result['consensus'])
     
-    print("\nDiagnoses:")
+    print("\nCancer Diagnoses:")
     for i, diag in enumerate(result['diagnoses']):
         print(f"{i+1}. {diag}")
     
-    print("\nTreatment Recommendations:")
+    print("\nCancer Treatment Recommendations:")
     for i, treat in enumerate(result['treatments']):
         print(f"{i+1}. {treat}")
     
-    print("\nSource Credibility:", result['source_credibility']) 
+    print("\nOncology Source Credibility:", result['source_credibility'])
+    print(f"\nNumber of sources: {len(result['verified_sources'])}")
+    print("\nSources:")
+    for i, source in enumerate(result['verified_sources']):
+        print(f"{i+1}. {source}") 

@@ -14,13 +14,35 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 from googleapiclient.discovery import build
 
-# List of trusted medical domains
+# List of trusted lung cancer-specific medical domains
 TRUSTED_DOMAINS = [
-    'mayoclinic.org', 'nih.gov', 'who.int', 'cdc.gov', 'webmd.com',
-    'medlineplus.gov', 'healthline.com', 'medicalnewstoday.com',
-    'hopkinsmedicine.org', 'clevelandclinic.org', 'health.harvard.edu',
-    'ncbi.nlm.nih.gov', 'pubmed.gov', 'nejm.org', 'thelancet.com',
-    'jamanetwork.com', 'bmj.com', 'aafp.org', 'medscape.com'
+    # Tổ chức chuyên về ung thư phổi
+    'lungcancer.org', 'iaslc.org', 'lungcancerresearchfoundation.org', 'lungevity.org', 
+    'lung.org', 'lcrf.org', 'lungcanceralliance.org', 'go2foundation.org',
+    
+    # Tổ chức ung thư lớn có phần chuyên về ung thư phổi
+    'cancer.gov/types/lung', 'cancer.org/cancer/lung-cancer', 'nccn.org/lung-cancer',
+    'cancerresearchuk.org/lung-cancer', 'asco.org/lung-cancer', 
+    
+    # Trung tâm y tế lớn có chương trình ung thư phổi
+    'mayoclinic.org/lung-cancer', 'mskcc.org/lung-cancer', 'dana-farber.org/lung-cancer', 
+    'mdanderson.org/lung-cancer', 'hopkinsmedicine.org/lung-cancer',
+    
+    # Tạp chí y khoa về ung thư phổi
+    'jto.org', 'lungcancerjournal.info', 'thoracic.org', 'thoracicsurgery.org',
+    
+    # Cơ sở dữ liệu thử nghiệm lâm sàng
+    'clinicaltrials.gov/lung-cancer', 'cancer.gov/about-cancer/treatment/clinical-trials/lung',
+    
+    # Tổ chức y tế và nghiên cứu
+    'who.int', 'nih.gov', 'nejm.org', 'thelancet.com/respiratory',
+    'jamanetwork.com/journals/jamaoncology/lung-cancer', 'jco.org', 
+    'nature.com/subjects/lung-cancer', 'esmo.org/guidelines/lung-cancer',
+    'aacr.org', 'cancertherapyadvisor.com/lung-cancer', 'cancer.net/lung',
+    
+    # Các trang web chung về ung thư (ít ưu tiên hơn)
+    'cancer.gov', 'cancer.org', 'nccn.org', 'cancerresearchuk.org', 'asco.org',
+    'mayoclinic.org', 'mskcc.org', 'dana-farber.org', 'mdanderson.org'
 ]
 
 # Create default session with timeout and retry
@@ -42,7 +64,7 @@ def create_default_session(timeout: int = 10):
 default_session = create_default_session()
 
 @lru_cache(maxsize=32)
-def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = True) -> List[Dict[str, Any]]:
+def web_search(query: str, num_results: int = 12, use_trusted_domains: bool = True) -> List[Dict[str, Any]]:
     """
     Perform a web search and return the results.
     
@@ -65,7 +87,7 @@ def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = Tru
         "q": query,
         "gl": "us",
         "hl": "en",
-        "num": num_results * 2  # Request more results to account for filtering
+        "num": num_results * 3  # Request more results to account for filtering
     }
     
     headers = {
@@ -76,7 +98,7 @@ def web_search(query: str, num_results: int = 8, use_trusted_domains: bool = Tru
     try:
         # Use session with timeout
         session = default_session
-        response = session.post(url, headers=headers, json=payload, timeout=10)
+        response = session.post(url, headers=headers, json=payload, timeout=15)
         response.raise_for_status()
         
         search_results = []
@@ -142,7 +164,7 @@ class GoogleSearchTool(BaseTool):
     class QueryInput(BaseModel):
         """Input for GoogleSearchTool."""
         query: str = Field(..., description="The search query")
-        num_results: int = Field(5, description="Number of results to return")
+        num_results: int = Field(10, description="Number of results to return")
     
     args_schema: Type[BaseModel] = QueryInput
     
@@ -157,7 +179,7 @@ class GoogleSearchTool(BaseTool):
         self._search_attempt_count = {}
     
     @lru_cache(maxsize=50)
-    def _cached_search(self, query: str, num_results: int = 5) -> List[Dict[str, str]]:
+    def _cached_search(self, query: str, num_results: int = 10) -> List[Dict[str, str]]:
         """Cached search function to avoid redundant API calls."""
         service = build("customsearch", "v1", developerKey=self._api_key)
         
@@ -166,7 +188,7 @@ class GoogleSearchTool(BaseTool):
         # Add domain restrictions if not already present in the query
         if not any(f"site:{domain}" in query for domain in TRUSTED_DOMAINS):
             # Select a few trusted domains to add to the query
-            top_domains = TRUSTED_DOMAINS[:3]
+            top_domains = TRUSTED_DOMAINS[:5]
             site_restriction = " OR ".join([f"site:{domain}" for domain in top_domains])
             trusted_sites_query = f"{query} ({site_restriction})"
             
@@ -187,7 +209,7 @@ class GoogleSearchTool(BaseTool):
         
         return formatted_results
     
-    def _run(self, query: str, num_results: int = 5) -> str:
+    def _run(self, query: str, num_results: int = 10) -> str:
         """
         Run Google search and return results.
         
@@ -247,22 +269,75 @@ class GoogleSearchTool(BaseTool):
     
     def _get_sample_results(self, query: str) -> List[Dict[str, str]]:
         """Get sample results based on the query."""
-        if "tinnitus" in query.lower():
+        if "breast cancer" in query.lower():
             return [
                 {
-                    "title": "Tinnitus - Symptoms and causes - Mayo Clinic",
-                    "snippet": "Tinnitus is when you experience ringing or other noises in one or both of your ears. The noise you hear when you have tinnitus isn't caused by an external sound, and other people usually can't hear it. Tinnitus is a common problem. It affects about 15% to 20% of people, and is especially common in older adults.",
-                    "link": "https://www.mayoclinic.org/diseases-conditions/tinnitus/symptoms-causes/syc-20350156"
+                    "title": "Breast Cancer | Breast Cancer Information & Overview",
+                    "snippet": "Breast cancer is the most common cancer in American women, except for skin cancers. The average risk of a woman in the United States developing breast cancer sometime in her life is about 13%.",
+                    "link": "https://www.cancer.org/cancer/breast-cancer.html"
                 },
                 {
-                    "title": "Tinnitus | NIDCD - National Institute on Deafness and Other Communication Disorders",
-                    "snippet": "Tinnitus is commonly described as a ringing in the ears, but it also can sound like roaring, clicking, hissing, or buzzing. It may be soft or loud, high pitched or low pitched. You might hear it in either one or both ears.",
-                    "link": "https://www.nidcd.nih.gov/health/tinnitus"
+                    "title": "Breast Cancer: Symptoms, Causes, Types, Treatment & Prevention",
+                    "snippet": "Breast cancer is a disease in which cells in the breast grow out of control. There are different kinds of breast cancer. The kind of breast cancer depends on which cells in the breast turn into cancer.",
+                    "link": "https://www.cdc.gov/cancer/breast/basic_info/index.htm"
                 },
                 {
-                    "title": "Current Treatments for Tinnitus: The Road Ahead - NCBI",
-                    "snippet": "Tinnitus is a prevalent condition that is characterized by an auditory perception of sound in the absence of an external stimulus. It has a high prevalence, between 10% and 15% of the adult population, and it causes significant distress in 5%–7% of the general population.",
-                    "link": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6932290/"
+                    "title": "Breast Cancer: Practice Essentials, Background, Anatomy",
+                    "snippet": "Breast cancer is the most common nonskin cancer in women, with an estimated 287,850 new cases and 43,250 deaths expected in the United States in 2022.",
+                    "link": "https://emedicine.medscape.com/article/1947145-overview"
+                },
+                {
+                    "title": "Breast Cancer Treatment (Adult) (PDQ®)–Patient Version",
+                    "snippet": "Breast cancer is a disease in which malignant (cancer) cells form in the tissues of the breast. The breast is made up of lobes and ducts. Each breast has 15 to 20 sections called lobes, which have many smaller sections called lobules.",
+                    "link": "https://www.cancer.gov/types/breast/patient/breast-treatment-pdq"
+                },
+                {
+                    "title": "Breast Cancer | NCCN Guidelines for Patients",
+                    "snippet": "The NCCN Guidelines for Patients® provide trustworthy information from the world's leading cancer experts. These guides help patients talk with their doctors about the best treatment options for their cancer.",
+                    "link": "https://www.nccn.org/patientresources/patient-resources/guidelines-for-patients/guidelines-for-patients-details?patientGuidelineId=3"
+                },
+                {
+                    "title": "Breast Cancer: Types, Risk Factors, Symptoms, Tests, Treatment",
+                    "snippet": "Breast cancer is the second most common cancer worldwide and the most common cancer in women. About 1 in 8 U.S. women will develop invasive breast cancer over the course of her lifetime.",
+                    "link": "https://www.breastcancer.org/facts-statistics"
+                },
+                {
+                    "title": "Breast Cancer | Mammograms | MedlinePlus",
+                    "snippet": "Breast cancer affects 1 in 8 women during their lives. It is the second-leading cancer killer of women in the United States, next to lung cancer. No one knows why some women get breast cancer, but there are many risk factors.",
+                    "link": "https://medlineplus.gov/breastcancer.html"
+                },
+                {
+                    "title": "Breast Cancer - American Cancer Society",
+                    "snippet": "Learn about breast cancer causes, symptoms, tests, recovery, and prevention. Plus, read about treatment options like mastectomy, radiation, chemotherapy, targeted therapy, and immunotherapy.",
+                    "link": "https://www.cancer.org/cancer/types/breast-cancer.html"
+                },
+                {
+                    "title": "Breast Cancer: Signs, Symptoms, and Complications",
+                    "snippet": "The most common symptom of breast cancer is a new lump or mass. A painless, hard mass that has irregular edges is more likely to be cancer, but breast cancers can be tender, soft, or rounded. They can even be painful.",
+                    "link": "https://www.verywellhealth.com/breast-cancer-symptoms-430640"
+                },
+                {
+                    "title": "Breast Cancer: Diagnosis, Treatment, Research | MSKCC",
+                    "snippet": "Memorial Sloan Kettering's breast cancer team of experts provides comprehensive, compassionate care and innovative treatments for all types and stages of breast cancer.",
+                    "link": "https://www.mskcc.org/cancer-care/types/breast"
+                }
+            ]
+        elif "tinnitus" in query.lower():
+            return [
+                {
+                    "title": "Tinnitus - American Tinnitus Association",
+                    "snippet": "Tinnitus is the perception of sound when no actual external noise is present. While it is commonly referred to as 'ringing in the ears,' tinnitus can manifest many different perceptions of sound, including buzzing, hissing, whistling, swooshing, and clicking.",
+                    "link": "https://www.ata.org/understanding-facts/what-tinnitus"
+                },
+                {
+                    "title": "The Best Treatment Options for Tinnitus - Healthline",
+                    "snippet": "Tinnitus treatments may include sound therapy, cognitive behavioral therapy, and masking devices. Sound therapy uses external noise to mask the perception of tinnitus.",
+                    "link": "https://www.healthline.com/health/treatments-for-tinnitus"
+                },
+                {
+                    "title": "Recent advances in tinnitus research and treatment",
+                    "snippet": "New research is exploring neuroplasticity-based approaches, including targeted auditory training, transcranial magnetic stimulation, and vagus nerve stimulation to treat tinnitus at its neurological source.",
+                    "link": "https://www.sciencedirect.com/science/article/pii/S2468941320301750"
                 }
             ]
         else:

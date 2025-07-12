@@ -1,6 +1,16 @@
 """
-AI Agents module for the Consensus Mechanism system.
+AI Agents for Cancer Consensus System
 """
+
+# Import translation agent
+from app.agents.translation_agent import (
+    MedicalTranslationAgent,
+    get_translation_agent,
+    translate_medical_consensus,
+    translate_text,
+    SUPPORTED_LANGUAGES
+)
+
 from langchain.tools.base import BaseTool
 from typing import Dict, Any, List, Optional
 import json

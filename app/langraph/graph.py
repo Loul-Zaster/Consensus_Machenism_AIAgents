@@ -10,8 +10,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 
-from app.agents import ResearcherAgent
-from app.langraph.agents import SourceVerifier, Diagnostician, TreatmentAdvisor, ConsensusBuilder
+from app.langraph.agents import ResearcherAgent, SourceVerifier, Diagnostician, TreatmentAdvisor, ConsensusBuilder, LungCancerSpecialistAgent
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +33,7 @@ class MedicalDiagnosisState(TypedDict):
     next: Optional[str]
     research_attempt: int
     verification_attempt: int
+    lung_cancer_analysis: Optional[Dict[str, Any]]
 
 
 def create_medical_diagnosis_graph(researcher: ResearcherAgent) -> StateGraph:
@@ -42,7 +42,7 @@ def create_medical_diagnosis_graph(researcher: ResearcherAgent) -> StateGraph:
     
     Args:
         researcher: A ResearcherAgent instance
-        
+    
     Returns:
         A StateGraph instance representing the medical diagnosis workflow
     """
@@ -54,6 +54,10 @@ def create_medical_diagnosis_graph(researcher: ResearcherAgent) -> StateGraph:
     
     source_verifier = SourceVerifier()
     workflow.add_node("verify_sources", source_verifier.run)
+        
+    # Add lung cancer specialist agent
+    lung_cancer_specialist = LungCancerSpecialistAgent(realtime=researcher.realtime, min_sources=researcher.min_sources)
+    workflow.add_node("lung_cancer_analysis", lung_cancer_specialist.run)
     
     diagnostician = Diagnostician()
     workflow.add_node("diagnose", diagnostician.run)
@@ -66,7 +70,20 @@ def create_medical_diagnosis_graph(researcher: ResearcherAgent) -> StateGraph:
     
     # Add edges to connect the nodes
     workflow.add_edge("research", "verify_sources")
-    workflow.add_edge("verify_sources", "diagnose")
+    
+    # Add conditional edge to route to lung cancer specialist if topic is related to lung cancer
+    workflow.add_conditional_edges(
+        "verify_sources",
+        lambda x: "lung_cancer_analysis" if "lung" in x["topic"].lower() and "cancer" in x["topic"].lower() else "diagnose",
+        {
+            "lung_cancer_analysis": "lung_cancer_analysis",
+            "diagnose": "diagnose"
+        }
+    )
+    
+    # Connect lung cancer specialist back to the main flow
+    workflow.add_edge("lung_cancer_analysis", "build_consensus")
+    
     workflow.add_edge("diagnose", "recommend_treatment")
     workflow.add_edge("recommend_treatment", "build_consensus")
     
@@ -92,7 +109,8 @@ def run_medical_diagnosis(
     symptoms: str = "No symptoms provided.",
     medical_history: str = "No medical history provided.",
     test_results: str = "No test results provided.",
-    realtime: bool = False
+    realtime: bool = False,
+    min_sources: int = 10
 ) -> Dict[str, Any]:
     """
     Run the medical diagnosis workflow.
@@ -103,6 +121,7 @@ def run_medical_diagnosis(
         medical_history: Patient medical history
         test_results: Patient test results
         realtime: Whether to use real-time web search
+        min_sources: Minimum number of sources to include in research
         
     Returns:
         Dictionary with diagnosis results
@@ -128,30 +147,32 @@ def run_medical_diagnosis(
         # Thay vào đó, sử dụng timeout trong mỗi request
         
         # Setup researcher agent
-        print(f"Set realtime={realtime} for ResearcherAgent")
-        researcher = ResearcherAgent(realtime=realtime)
+        print(f"Set realtime={realtime} for ResearcherAgent with min_sources={min_sources}")
+        researcher = ResearcherAgent(realtime=realtime, min_sources=min_sources)
         researcher.session = session  # Truyền session đã cấu hình
         
         # Create and run the graph
         graph = create_medical_diagnosis_graph(researcher)
-        
+    
         # Define input state
         input_state = {
-            "topic": topic,
-            "symptoms": symptoms,
-            "medical_history": medical_history,
-            "test_results": test_results,
+        "topic": topic,
+        "symptoms": symptoms,
+        "medical_history": medical_history,
+        "test_results": test_results,
             "diagnoses": [],
             "treatments": [],
-            "research_findings": None,
-            "verified_sources": None,
-            "source_credibility": None,
-            "consensus": None,
+        "research_findings": None,
+        "verified_sources": None,
+        "source_credibility": None,
+        "consensus": None,
             "current_round": 1,
-            "max_rounds": 1,
+        "max_rounds": 1,
             "next": None,
             "research_attempt": 0,  # Initialize research attempt counter
-            "verification_attempt": 0  # Initialize verification attempt counter
+            "verification_attempt": 0,  # Initialize verification attempt counter
+            "min_sources": min_sources,  # Pass minimum sources parameter
+            "lung_cancer_analysis": None  # Initialize lung cancer analysis
         }
         
         print(f"Starting medical diagnosis for {topic}")
@@ -197,10 +218,12 @@ def run_medical_diagnosis(
     except Exception as e:
         print(f"Error during diagnosis: {str(e)}")
         return {
-            "research_findings": f"Error during research: {str(e)}",
+            "topic": topic,
+            "error": str(e),
+            "consensus": "Unable to complete diagnosis due to technical issues.",
             "diagnoses": [],
             "treatments": [],
-            "consensus": "Unable to complete diagnosis due to technical issues.",
+            "research_findings": f"Error: {str(e)}",
             "verified_sources": [],
             "source_credibility": 0.0
         } 

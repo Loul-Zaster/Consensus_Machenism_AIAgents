@@ -102,10 +102,10 @@ def run_evaluation():
         
         def update(self, n=1):
             self.n += n
-                progress_bar.progress(
+            progress_bar.progress(
                 self.n / self.total,
                 text=f"Evaluating sample {self.n}/{self.total}"
-                )
+            )
             return True
     
         def close(self):

@@ -15,23 +15,24 @@ load_dotenv()
 def get_llm():
     """
     Get a LangChain LLM client.
-    
+
     Returns:
         ChatOpenAI instance
     """
-    # Check for API keys
-    if os.getenv("OPENAI_API_KEY"):
-        print("Using OpenAI API key")
-        return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
-            temperature=0.7
-        )
-    elif os.getenv("IOINTELLIGENCE_API_KEY"):
-        print("Using IO.net Intelligence API key with DeepSeek-R1-0528")
+    # Ưu tiên dùng IO.net Intelligence API key
+    if os.getenv("IOINTELLIGENCE_API_KEY"):
+        print("Using IO.net Intelligence API key with primary model")
         return ChatOpenAI(
             api_key=os.getenv("IOINTELLIGENCE_API_KEY"),
             base_url=os.getenv("IOINTELLIGENCE_BASE_URL", "https://api.intelligence.io.solutions/api/v1/"),
-            model="deepseek-ai/DeepSeek-R1-0528",
+            model=os.getenv("IOINTELLIGENCE_DEFAULT_MODEL", "meta-llama/Llama-3.3-70B-Instruct"),
+            temperature=0.7
+        )
+    # Only fall back to OpenAI if IO.net Intelligence is not available
+    elif os.getenv("OPENAI_API_KEY"):
+        print("Using OpenAI API key as fallback")
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
             temperature=0.7
         )
     else:

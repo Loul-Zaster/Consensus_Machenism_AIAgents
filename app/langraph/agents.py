@@ -1,4 +1,4 @@
-"""
+﻿"""
 Agents for the Consensus Mechanism AI Agents system.
 """
 
@@ -71,20 +71,33 @@ class BaseAgent:
             model: Model to use
             temperature: Temperature for sampling
         """
+        # Priority 1: Use IO.net Intelligence API
         self.api_key = api_key or os.getenv("IOINTELLIGENCE_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key not provided and not found in environment variables.")
-        
-        self.base_url = base_url or os.getenv("IOINTELLIGENCE_BASE_URL", "https://api.intelligence.io.solutions/api/v1/")
-        self.model = model or os.getenv("IOINTELLIGENCE_DEFAULT_MODEL", "meta-llama/Llama-3.3-70B-Instruct")
-        
-        # Initialize the LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            openai_api_key=self.api_key,
-            openai_api_base=self.base_url,
-            temperature=temperature
-        )
+        if self.api_key:
+            self.base_url = base_url or os.getenv("IOINTELLIGENCE_BASE_URL", "https://api.intelligence.io.solutions/api/v1/")
+            self.model = model or os.getenv("IOINTELLIGENCE_DEFAULT_MODEL", "meta-llama/Llama-3.3-70B-Instruct")
+            
+            # Initialize the LLM with IO.net Intelligence
+            print("BaseAgent: Using IO.net Intelligence API")
+            self.llm = ChatOpenAI(
+                model=self.model,
+                openai_api_key=self.api_key,
+                openai_api_base=self.base_url,
+                temperature=temperature
+            )
+        # Priority 2: Fall back to OpenAI if IO.net Intelligence API is not available
+        elif os.getenv("OPENAI_API_KEY"):
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.model = model or os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+            
+            # Initialize the LLM with OpenAI
+            print("BaseAgent: Using OpenAI API as fallback")
+            self.llm = ChatOpenAI(
+                model=self.model,
+                temperature=temperature
+            )
+        else:
+            raise ValueError("No API key provided. Please set either IOINTELLIGENCE_API_KEY or OPENAI_API_KEY in your environment variables.")
     
     def run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """

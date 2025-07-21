@@ -1,0 +1,18 @@
+[
+    {
+      "question": "What are the main subtypes of NSCLC?",
+      "ground_truth": "The main subtypes of Non-Small Cell Lung Cancer are adenocarcinoma, squamous cell carcinoma, and large cell carcinoma.",
+      "contexts": [
+        "Non-Small Cell Lung Cancer (NSCLC) is the most common type of lung cancer... The main subtypes of NSCLC include adenocarcinoma, squamous cell carcinoma, and large cell carcinoma.",
+        "Treatment for SCLC is different from NSCLC."
+      ]
+    },
+    {
+      "question": "What is a common symptom of lung cancer?",
+      "ground_truth": "A common symptom of lung cancer is a persistent cough that does not go away or gets worse.",
+      "contexts": [
+        "Common symptoms of lung cancer may include: A persistent cough that does not go away or gets worse. Coughing up blood or rust-colored sputum.",
+        "Early detection greatly improves prognosis."
+      ]
+    }
+  ]

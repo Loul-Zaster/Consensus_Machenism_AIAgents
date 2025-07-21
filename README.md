@@ -1,6 +1,6 @@
 # Cancer Consensus AI Agents
 
-![Cancer Consensus AI Agents](https://raw.githubusercontent.com/intelligence-io/Consensus_Mechanism_AIAgents/main/assets/logo.png)
+![Cancer Consensus AI Agents](/LOGO.png)
 
 ## 📋 Table of Contents
 
